@@ -1,0 +1,331 @@
+%==============================================================================
+%WRAPPER
+%==============================================================================
+
+function numericalMethods ()
+	debugMode(false);
+	setMaxError (0.00001);
+	menuLoop(formatList(["Set max tolerated error (0.001% default)","Show all control messages","Hide all control messages (default)","Bisection","Newton-Raphson", "Secant"]));
+	clc;
+end
+
+%==============================================================================
+%PROGRAM SPECIFIC FUNCTIONS
+% Examples:
+% result = - 12 * x * x * x * x * x - 6*x + 10;
+% result = log(x * x) - 0.7;
+% result = cos(x) - x * x;
+%==============================================================================
+
+function result = myFunction(x)
+	result = cos(x) - x * x; %CHANGE THE FUNCTION HERE
+end
+
+function result = myDerivative(x)
+	result = -sin(x) - 2*x; %CHANGE THE FUNCTION HERE, must be df(x) / dx
+end
+
+%==============================================================================
+%GENERAL MATH FUNCTIONS
+%==============================================================================
+
+%Used to find the middle point
+function result = midpoint(a,b)
+	result = (a + b)/2;
+end
+
+%Used to find the relative error
+function result = relativeError (calculated, expected)
+	result = abs ((expected - calculated) / expected);
+end
+
+%Used to find the relative error
+function result = absoluteError (calculated, expected)
+	result = abs (expected - calculated);
+end
+
+%Used to convert a percentage to a decimal number
+function result = percentToDecimal (percent)
+	result = percent / 100;
+end
+
+%==============================================================================
+%GENERAL UTILITY FUNCTIONS
+%==============================================================================
+
+%Used to set a maximum tolerated error
+function setMaxError (error)
+	global maxError;
+	maxError = error;
+end
+
+%Used to get the current maximum tolerated error
+function result = getMaxError()
+	global maxError;
+	result = maxError;
+end
+
+%Used to enable debug mode
+function debugMode (debugOn)
+	global debug;
+	debug = debugOn;
+end
+
+%Used to show debug messages when enabled
+function debugMessage(message)
+	global debug;
+	if debug
+		fprintf(message);
+	end
+end
+
+%Used to show debug decimal values when enabled
+function debugFloat(messagePre, value, messagePost)
+	global debug;
+	if debug
+		fprintf('%s%.8f%s\n',messagePre, value, messagePost);
+	end
+end
+
+%Used to show debug integer values when enabled
+function debugInt(messagePre, value, messagePost)
+	global debug;
+	if debug
+		fprintf('%s%i%s\n',messagePre, value, messagePost);
+	end
+end
+
+%Use as 'error = debugBreakpoint(error, alt)'
+function result = debugBreakpoint(value, alt)
+	global debug;
+	if debug
+		temp = input("Type -1 to exit\n");
+		if temp == -1
+			result = alt;
+		else 
+			result = value;
+		end
+	else
+		result = value;
+	end
+end
+
+%Used as system("pause")
+function exitMessage = messagePause()
+	exitMessage = input("Type any key to continue\n", 's');
+end
+
+%==============================================================================
+%MAIN MENU FUNCTIONS
+%==============================================================================
+
+%Format shenanigans
+function showResults(result, error,iteration)
+	fprintf("Result (x): %.8f\n", result);
+	fprintf("Result (y): %.8f\n", myFunction(result));
+	fprintf("Relative error: %.8f\n", error);
+	fprintf("Absolute error: %.8f\n", absoluteError (myFunction(result),0));
+	fprintf("Iteration: %i\n", iteration);
+end
+
+%Format shenanigans
+function showIteration(result, error,iteration, firstIterationError)
+	debugFloat("Current value (x): ",result, "");
+	debugFloat("Current value (y): ",myFunction(result), "");
+	if iteration ~= 1 || firstIterationError
+		debugFloat("Relative error: ",error, "");
+	end
+	debugFloat("Absolute error: ",absoluteError (myFunction(result),0), "");
+	debugInt("Iteration: ",iteration, "");
+	debugMessage("========================================\n");
+end
+
+%Used to add indexes to a list
+function text = formatList(elements)
+	index = 1:1:size(elements,2);
+	elements = index + ") " + elements;
+	text = elements;
+end
+
+%Used as a main menu
+function menuLoop (options)
+	menuOption = 1;
+	while menuOption ~= 0
+		%Menu format shenanigans
+		clc;
+		fprintf ("Equipo 5\nMenu options:\n");
+		disp(options');
+		menuOption = input("Type the number matching the option you want to perform\nType 0 to exit\n");
+		%Send user to correct option
+		menuSwitch(menuOption);
+		%Pause until user is ready to continue
+		if menuOption ~= 0
+			messagePause();
+		end
+	end
+end
+
+%Used to send user to correct option
+function menuSwitch (menuOption)
+	if menuOption == 1
+		temp = input("Type the max tolerated error (in percent)\n");
+		setMaxError (percentToDecimal(temp));
+		fprintf("Max error has been set\n");
+	elseif menuOption == 2
+		debugMode(true);
+		fprintf("All control messages will be shown\n");
+	elseif menuOption == 3
+		debugMode(false);
+		fprintf("All control messages will be hidden\n");
+	elseif menuOption == 4
+		bisection();
+	elseif menuOption == 5
+		newtonRaphson();
+	elseif menuOption == 6
+		secantMethod();
+	end
+end
+
+%==============================================================================
+%BISECTION
+%==============================================================================
+
+%Used to find bounds for the next iteration
+function [newLower, newUpper, middle] = compareBounds(lowerBound,upperBound)
+	middle = midpoint(lowerBound,upperBound);
+	if myFunction(middle) == 0
+		newLower = middle;
+		newUpper = middle;
+		debugMessage("Root is exacty in the middle\n");
+	elseif myFunction(lowerBound) == 0
+		newLower = lowerBound;
+		newUpper = lowerBound;
+		debugMessage("Root is exacty in the lower bound \n");
+	elseif myFunction(upperBound) == 0
+		newLower = upperBound;
+		newUpper = upperBound;
+		debugMessage("Root is exacty in the upper bound\n");
+	elseif myFunction(middle) * myFunction(lowerBound) < 0
+		newLower = lowerBound;
+		newUpper = middle;
+		debugMessage("Root is in the first half of segment\n");
+	else
+		newLower = middle;
+		newUpper = upperBound;
+		debugMessage("Root is in the second half of segment\n");
+	end
+end
+
+%Searches for a root in defined interval
+function bisection()
+	%Setup
+	boundsA = input("Type the lower bound of search\n");
+	boundsB = input("Type the upper bound of search\n");
+	oldResult = boundsA;
+	error = 1;
+	iteration = 0;
+	%Until error is within threshold
+	while error > getMaxError()
+		iteration = iteration + 1;
+		%Getting new bounds and current result
+		[boundsA,boundsB,result] = compareBounds(boundsA,boundsB);
+		%Calculating error
+		error = relativeError(oldResult, result);
+		oldResult = result;
+		%In case the root is exact
+		if boundsA == boundsB
+			result = boundsA;
+			error = 0;
+		end
+		%Format shenanigans
+		showIteration(result, error,iteration, false);
+	end
+	showResults(result, error,iteration);
+end
+
+%==============================================================================
+%NEWTON - RAPHSON
+%==============================================================================
+
+%Returns x - f(x)/[d f(x) / dx]
+function result = derivativeApproximation(point)
+	result = point - myFunction(point)/myDerivative(point);
+end
+
+%Searches for a root in defined interval
+function newtonRaphson()
+	%Setup
+	currentResult = input("Type the initial value of x\n");
+	error = 1;
+	iteration = 0;
+	convergence = true;
+	%Until error is within threshold
+	while error > getMaxError() && convergence
+		if myDerivative(currentResult) == 0
+			if myFunction(currentResult)==0
+				error = 0;
+			else
+				convergence = false;
+				error = 1;
+			end
+		else
+			iteration = iteration + 1;
+			oldResult = currentResult;
+			%Getting new value of x
+			currentResult = derivativeApproximation(currentResult);
+			%Calculating error
+			error = relativeError(oldResult, currentResult);
+			%Format shenanigans
+			showIteration(currentResult, error,iteration, true);
+		end
+	end
+	if convergence
+		showResults(currentResult, error,iteration);
+	else
+		fprintf("Value does not converge\n");
+		fprintf("Last registered value (x): %.8f\n", currentResult);
+		fprintf("Iteration: %i\n", iteration);
+	end
+end
+
+%==============================================================================
+%SECANT
+%==============================================================================
+
+%Used to set bounds according to value of the function on those points
+function [xn,xn_1] = realignBounds(current, past)
+	if abs(myFunction(past)) <= abs(myFunction(current))
+		xn = past;
+		xn_1 = current;
+	else
+		xn = current;
+		xn_1 = past;
+	end
+end
+
+%Returns xn - f(xn)*[xn-1 - xn / f(xn-1) - f(xn)]
+function result = secantApproximation(currentPoint, pastPoint)
+	result = currentPoint - myFunction(currentPoint) *(pastPoint - currentPoint)/(myFunction(pastPoint) - myFunction(currentPoint));
+end
+
+%Searches for a root in defined interval
+function secantMethod()
+	%Setup
+	oldPoint = input("Type the value of X0\n");
+	currentPoint = input("Type the value of X1\n");
+	error = 1;
+	iteration = 0;
+	%Until error is within threshold
+	while error > getMaxError()
+		iteration = iteration + 1;
+		[currentPoint, oldPoint] = realignBounds(currentPoint, oldPoint);
+		temp = secantApproximation(currentPoint, oldPoint);
+		oldPoint = currentPoint;
+		currentPoint = temp;
+		%Calculating error
+		error = relativeError(oldPoint, currentPoint);
+		%Format shenanigans
+		showIteration(currentPoint, error,iteration, false);
+	end
+	showResults(currentPoint, error,iteration);
+end
