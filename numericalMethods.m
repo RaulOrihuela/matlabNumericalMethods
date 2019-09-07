@@ -335,6 +335,7 @@ end
 %==============================================================================
 %GAUSS - SEIDEL
 %==============================================================================
+
 %Used to get a row from user input
 function row = captureRow(size)
     row  = [];
@@ -351,9 +352,17 @@ end
 function matrix  = captureMatrix(size)
     matrix  = [];
     for index = 1:size
-        message = "========================================\nRow " + index + "\n========================================\n";
+        message = "======================================\nRow " + index + "\n======================================\n";
         fprintf(message);
         matrix  = [matrix; captureRow(size)];
+    end
+end
+
+%Format shenanigans
+function showGaussSeidelIteration(iteration, x, error, variableIndex)
+    debugFloat("Result x" + variableIndex + ": ", x, "");
+    if iteration ~= 1
+        debugFloat("Relative error x" + variableIndex + ": ", error, "");
     end
 end
 
@@ -362,17 +371,30 @@ function gaussSeidel_3()
     %Setup
     fprintf("Remember, the matrix must be ordered with the greatest values of each row in the diagonal\n");     
     matrix = captureMatrix(3);
-    x1 = 0; x2 = 0; x3 = 0; error = true;
+    x1 = 0; x2 = 0; x3 = 0; error = true; iteration = 0;
 	%Main loop
-    while error> getMaxError()
+    while error
+        %Save previous data
+        iteration = iteration + 1;
         old_x1 = x1; old_x2 = x2; old_x3 = x3;
+        %Calculate new data
         x1 = (matrix(1,4) - matrix(1,2)*x2 - matrix(1,3)*x3 )/ matrix(1,1);
         x2 = (matrix(2,4) - matrix(2,1)*x1 - matrix(2,3)*x3 )/ matrix(2,2);
         x3 = (matrix(3,4) - matrix(3,1)*x1 - matrix(3,2)*x2 )/ matrix(3,3);
-        error = relativeError(old_x1, x1) > getMaxError() ||  relativeError(old_x2, x2) > getMaxError() || relativeError(old_x3, x3) > getMaxError();
+        relative1 = relativeError(old_x1, x1);
+        relative2 = relativeError(old_x2, x2);
+        relative3 = relativeError(old_x3, x3);
+        error = relative1 > getMaxError() ||  relative2 > getMaxError() || relative3 > getMaxError();
+        %Show iteration results
+        debugMessage("========================================\n");
+        debugInt("Iteration: ", iteration, "");
+        showGaussSeidelIteration(iteration, x1, relative1, "1");
+        showGaussSeidelIteration(iteration, x2, relative2, "2");
+        showGaussSeidelIteration(iteration, x3, relative3, "3");
     end
+    %Show results
     fprintf("========================================\n");
     fprintf("Result (x1): %.8f\n", x1);
-	fprintf("Result (x2): %.8f\n", x2);
-	fprintf("Result (x3): %.8f\n", x3);
+    fprintf("Result (x2): %.8f\n", x2);
+    fprintf("Result (x3): %.8f\n", x3);
 end
